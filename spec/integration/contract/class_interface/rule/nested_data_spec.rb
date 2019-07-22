@@ -63,4 +63,35 @@ RSpec.describe Dry::Validation::Contract, '.rule' do
       end
     end
   end
+
+  context 'with a deeply nested array' do
+    let(:contract_class) do
+      Class.new(Dry::Validation::Contract) do
+        params do
+          required(:addresses).array(:hash) do
+            required(:phones).array(:string)
+          end
+        end
+
+        register_macro(:pl_phone) do
+          key.failure('invalid phone') unless value.start_with?('+48')
+        end
+
+        rule('addresses.phones').each(:pl_phone)
+      end
+    end
+
+    context 'when one of the values fails' do
+      it 'produces the errors for invalid values' do
+        hash = {
+          addresses: [
+            { phones: ['+48123'] },
+            { phones: ['+49123'] }
+          ]
+        }
+        expect(contract.(hash).errors.to_h)
+          .to eql(addresses: { 1 => { phones: { 0 => ['invalid phone'] } } })
+      end
+    end
+  end
 end
